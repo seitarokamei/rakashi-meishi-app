@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
 import { OcrResult } from '@/lib/types';
 import Image from 'next/image';
 
