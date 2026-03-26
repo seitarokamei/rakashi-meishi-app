@@ -43,10 +43,12 @@ export async function proxy(request: NextRequest) {
       url.pathname = '/';
       return NextResponse.redirect(url);
     }
-  } catch {
-    // エラー時は /login へリダイレクト
-    const url = request.nextUrl.clone();
-    if (!url.pathname.startsWith('/login')) {
+  } catch (e) {
+    console.error('[proxy] auth error:', e);
+    // API ルートはリダイレクトせずそのまま通す
+    const { pathname } = request.nextUrl;
+    if (!pathname.startsWith('/login') && !pathname.startsWith('/api')) {
+      const url = request.nextUrl.clone();
       url.pathname = '/login';
       return NextResponse.redirect(url);
     }

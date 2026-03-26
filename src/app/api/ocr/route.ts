@@ -7,17 +7,22 @@ export async function POST(req: NextRequest) {
     const { imageBase64, mediaType } = await req.json();
 
     if (!imageBase64 || !mediaType) {
+      console.error('[ocr] missing imageBase64 or mediaType');
       return NextResponse.json({ error: '画像データが必要です' }, { status: 400 });
     }
 
+    console.log(`[ocr] received image: mediaType=${mediaType}, base64Length=${imageBase64.length}`);
+
     const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
     if (!apiKey || apiKey === 'your_google_cloud_api_key_here') {
+      console.error('[ocr] GOOGLE_CLOUD_API_KEY is not set');
       return NextResponse.json(
-        { error: 'Google Cloud APIキーが設定されていません' },
+        { error: 'Google Cloud APIキーが設定されていません', detail: 'GOOGLE_CLOUD_API_KEY env var is missing' },
         { status: 500 },
       );
     }
 
+    console.log('[ocr] calling Vision API...');
     const visionRes = await fetch(`${VISION_API_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -33,14 +38,20 @@ export async function POST(req: NextRequest) {
 
     if (!visionRes.ok) {
       const err = await visionRes.json();
-      console.error('Vision API error:', err);
-      return NextResponse.json({ error: 'OCR処理に失敗しました' }, { status: 500 });
+      console.error(`[ocr] Vision API error: status=${visionRes.status}`, JSON.stringify(err));
+      const detail = err?.error?.message ?? JSON.stringify(err);
+      return NextResponse.json(
+        { error: `OCR処理に失敗しました (HTTP ${visionRes.status})`, detail },
+        { status: 500 },
+      );
     }
 
     const visionData = await visionRes.json();
     const fullText: string = visionData.responses?.[0]?.fullTextAnnotation?.text ?? '';
+    console.log(`[ocr] Vision API success, extracted text length=${fullText.length}`);
 
     if (!fullText) {
+      console.warn('[ocr] No text detected in image');
       return NextResponse.json(
         { error: 'テキストを検出できませんでした' },
         { status: 422 },
@@ -48,10 +59,14 @@ export async function POST(req: NextRequest) {
     }
 
     const result = parseBusinessCardText(fullText);
+    console.log('[ocr] parse result:', JSON.stringify(result));
     return NextResponse.json(result);
   } catch (error) {
-    console.error('OCRエラー:', error);
-    return NextResponse.json({ error: 'OCR処理中にエラーが発生しました' }, { status: 500 });
+    console.error('[ocr] unexpected error:', error);
+    return NextResponse.json(
+      { error: 'OCR処理中にエラーが発生しました', detail: String(error) },
+      { status: 500 },
+    );
   }
 }
 

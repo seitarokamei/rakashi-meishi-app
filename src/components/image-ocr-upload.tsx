@@ -34,6 +34,8 @@ export function ImageOcrUpload({ onOcrComplete, onError }: ImageOcrUploadProps) 
     try {
       // Base64に変換してAPIへ送信
       const base64 = await fileToBase64(file);
+      console.log(`[ocr-upload] sending image: type=${file.type}, size=${file.size}, base64Length=${base64.length}`);
+
       const response = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,14 +45,19 @@ export function ImageOcrUpload({ onOcrComplete, onError }: ImageOcrUploadProps) 
         }),
       });
 
+      console.log(`[ocr-upload] response status: ${response.status}`);
+
       if (!response.ok) {
         const err = await response.json();
+        console.error('[ocr-upload] API error response:', err);
         throw new Error(err.error || 'OCR処理に失敗しました');
       }
 
       const result = await response.json();
+      console.log('[ocr-upload] OCR result:', result);
       onOcrComplete(result, file);
     } catch (err) {
+      console.error('[ocr-upload] error:', err);
       onError?.(err instanceof Error ? err.message : 'OCR処理に失敗しました');
     } finally {
       setIsProcessing(false);
